@@ -1,0 +1,1036 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>星下点轨迹实验室</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<style>
+/* Layout: ground-station console — space view (always night) beside a paper/dark ground-track map, readouts strip, controls, collapsible theory. */
+:root{
+  --bg:#EDF0F4; --surface:#FFFFFF; --surface-2:#F4F6F9; --ink:#0F1B2D; --muted:#5A6A7E; --line:#D4DBE4;
+  --accent:#1F3A8A; --accent-ink:#FFFFFF; --accent-soft:#E3E9F7;
+  --sub:#D8343C; --sub-soft:rgba(216,52,60,.14);
+  --map-bg:#FFFFFF; --ocean:#E4ECF4; --land:#CBD5C0; --coast:#9AA98D; --grid:rgba(30,50,80,.16); --grid-strong:rgba(30,50,80,.38);
+  --anno:#1B2A40; --anno-2:#6A5A2E; --pill:rgba(255,255,255,.88);
+  --c1:#2357D6; --c2:#0C8F8A; --c3:#C7761A; --c4:#8A3FD1; --c5:#3D8B2F;
+  --space-1:#16233A; --space-2:#0A1222; --on-space:#DCE6F5; --on-space-2:#8FA2BF; --star:rgba(220,230,255,.55);
+  --ocean3d:#2F5F92; --land3d:#7E9B6E; --glow:#7FB4FF;
+  --f-ui:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif;
+  --f-num:ui-monospace,"SF Mono","Cascadia Mono",Consolas,"Roboto Mono",Menlo,monospace;
+  --r:10px;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --bg:#0B1019; --surface:#121A27; --surface-2:#172131; --ink:#E5EBF4; --muted:#8E9BB0; --line:#26324A;
+  --accent:#8FB0FF; --accent-ink:#0B1019; --accent-soft:#1C2942;
+  --sub:#FF5C63; --sub-soft:rgba(255,92,99,.18);
+  --map-bg:#121A27; --ocean:#0F1C2E; --land:#2B3A35; --coast:#4C6157; --grid:rgba(170,190,220,.13); --grid-strong:rgba(170,190,220,.34);
+  --anno:#E8EEF7; --anno-2:#E2C77E; --pill:rgba(18,26,39,.9);
+  --c1:#6E9BFF; --c2:#3CC9C1; --c3:#F0A24A; --c4:#B88CF5; --c5:#7FCB66;
+  --space-1:#0E1628; --space-2:#05080F; --star:rgba(220,230,255,.6);
+  color-scheme:dark;
+}}
+:root[data-theme="dark"]{
+  --bg:#0B1019; --surface:#121A27; --surface-2:#172131; --ink:#E5EBF4; --muted:#8E9BB0; --line:#26324A;
+  --accent:#8FB0FF; --accent-ink:#0B1019; --accent-soft:#1C2942;
+  --sub:#FF5C63; --sub-soft:rgba(255,92,99,.18);
+  --map-bg:#121A27; --ocean:#0F1C2E; --land:#2B3A35; --coast:#4C6157; --grid:rgba(170,190,220,.13); --grid-strong:rgba(170,190,220,.34);
+  --anno:#E8EEF7; --anno-2:#E2C77E; --pill:rgba(18,26,39,.9);
+  --c1:#6E9BFF; --c2:#3CC9C1; --c3:#F0A24A; --c4:#B88CF5; --c5:#7FCB66;
+  --space-1:#0E1628; --space-2:#05080F; --star:rgba(220,230,255,.6);
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{background:var(--bg);color:var(--ink)}
+body{font-family:var(--f-ui);font-size:15px;line-height:1.55}
+.wrap{max-width:1320px;margin:0 auto;padding-block:20px 48px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:16px}
+header{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:12px 24px}
+.eyebrow{font-size:12px;letter-spacing:.14em;color:var(--muted);text-transform:uppercase;margin:0 0 4px}
+h1{font-size:clamp(24px,3.2vw,34px);line-height:1.15;margin:0;font-weight:750;letter-spacing:-.01em;text-wrap:balance}
+h1 .dot{display:inline-block;width:.42em;height:.42em;border-radius:50%;background:var(--sub);vertical-align:.12em;margin-left:.18em;box-shadow:0 0 0 .14em var(--sub-soft)}
+.lede{margin:6px 0 0;color:var(--muted);max-width:62ch}
+.presets{display:flex;flex-wrap:wrap;gap:8px}
+.preset{font:inherit;font-size:13.5px;border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:8px;padding:7px 12px 6px;cursor:pointer;display:flex;flex-direction:column;align-items:flex-start;line-height:1.25;transition:border-color .15s,background .15s}
+.preset small{font-family:var(--f-num);font-size:11.5px;color:var(--muted)}
+.preset:hover{border-color:var(--accent)}
+.preset[aria-pressed="true"]{background:var(--accent-soft);border-color:var(--accent)}
+.preset:focus-visible,.btn:focus-visible,input:focus-visible,summary:focus-visible,canvas:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.stage{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.45fr);gap:16px;align-items:stretch}
+.panel{margin:0;background:var(--surface);border:1px solid var(--line);border-radius:var(--r);display:flex;flex-direction:column;min-width:0;overflow:hidden}
+.panel-head{display:flex;justify-content:space-between;align-items:baseline;gap:8px;padding:10px 14px 8px;flex-wrap:wrap}
+.panel-head b{font-size:14px;font-weight:650}
+.panel-head span{font-size:12px;color:var(--muted)}
+.cv3-wrap{position:relative;flex:1;min-height:340px;background:radial-gradient(120% 90% at 50% 40%,var(--space-1),var(--space-2))}
+.cv3-wrap canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none;cursor:grab;display:block}
+.cv3-wrap canvas:active{cursor:grabbing}
+.hint3d{position:absolute;right:10px;bottom:8px;font-size:11.5px;color:var(--on-space-2);pointer-events:none}
+.badge3d{position:absolute;left:10px;top:8px;font-size:11.5px;color:var(--on-space-2);pointer-events:none;max-width:70%}
+.map-wrap{position:relative;width:100%;aspect-ratio:2/1.06;background:var(--map-bg)}
+.map-wrap canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
+.legend{display:flex;flex-wrap:wrap;gap:6px 14px;padding:8px 14px 11px;font-size:12.5px;color:var(--muted);border-top:1px solid var(--line)}
+.legend i{display:inline-block;vertical-align:middle;margin-right:5px}
+.lg-dot{width:9px;height:9px;border-radius:50%}
+.lg-line{width:18px;height:0;border-top:2px solid}
+.lg-dash{width:18px;height:0;border-top:2px dashed}
+.chip{display:inline-flex;align-items:center;gap:5px;font-variant-numeric:tabular-nums}
+.chip.now{color:var(--ink);font-weight:600}
+.readout{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));background:var(--surface);border:1px solid var(--line);border-radius:var(--r);overflow:hidden}
+.cell{padding:10px 14px 11px;border-right:1px solid var(--line);min-width:0}
+.cell:last-child{border-right:0}
+.cell .k{font-size:12px;color:var(--muted);display:flex;gap:6px;align-items:baseline}
+.cell .k var{font-style:italic;font-family:"Times New Roman",Times,serif;font-size:14px;color:var(--ink)}
+.cell .v{font-family:var(--f-num);font-size:clamp(17px,1.7vw,22px);font-weight:600;font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cell .s{font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cell.hot .v{color:var(--sub)}
+.controls{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr) minmax(0,1fr);gap:16px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:14px 16px 16px;min-width:0;display:flex;flex-direction:column;gap:12px}
+.card h2{font-size:13px;margin:0;color:var(--muted);font-weight:600;letter-spacing:.06em}
+.field{display:grid;grid-template-columns:1fr auto;gap:4px 10px;align-items:center}
+.field label{font-size:13.5px}
+.field label var{font-family:"Times New Roman",Times,serif;font-size:15px}
+.field input[type=range]{grid-column:1/-1;width:100%;accent-color:var(--accent);margin:2px 0 0}
+.numbox{display:flex;align-items:center;gap:4px;font-family:var(--f-num);font-size:13.5px;color:var(--muted)}
+.numbox input{width:84px;font:inherit;color:var(--ink);background:var(--surface-2);border:1px solid var(--line);border-radius:6px;padding:3px 6px;text-align:right;font-variant-numeric:tabular-nums}
+.numbox output{color:var(--ink);font-weight:600;min-width:4.5em;text-align:right}
+.note{font-size:12px;color:var(--muted);grid-column:1/-1;font-variant-numeric:tabular-nums}
+.btns{display:flex;flex-wrap:wrap;gap:8px}
+.btn{font:inherit;font-size:14px;display:inline-flex;align-items:center;gap:7px;border-radius:8px;padding:8px 14px;border:1px solid var(--line);background:var(--surface-2);color:var(--ink);cursor:pointer}
+.btn:hover{border-color:var(--accent)}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent);min-width:96px;justify-content:center}
+.btn svg{width:14px;height:14px;fill:currentColor}
+.switch{display:flex;gap:10px;align-items:flex-start;cursor:pointer;font-size:13.5px}
+.switch input{appearance:none;-webkit-appearance:none;flex:none;width:38px;height:22px;border-radius:11px;background:var(--line);position:relative;cursor:pointer;margin:1px 0 0;transition:background .15s}
+.switch input::after{content:"";position:absolute;top:3px;left:3px;width:16px;height:16px;border-radius:50%;background:var(--surface);box-shadow:0 1px 2px rgba(0,0,0,.25);transition:left .15s}
+.switch input:checked{background:var(--sub)}
+.switch input:checked::after{left:19px}
+.switch small{display:block;color:var(--muted);font-size:12px}
+.observe p{margin:0;font-size:14px}
+.observe p+p{margin-top:8px}
+.observe .tag{display:inline-block;font-size:11.5px;padding:1px 7px;border-radius:999px;background:var(--sub-soft);color:var(--sub);font-weight:600;margin-bottom:4px}
+.observe b{font-variant-numeric:tabular-nums}
+details.theory{background:var(--surface);border:1px solid var(--line);border-radius:var(--r)}
+details.theory>summary{cursor:pointer;padding:14px 16px;font-weight:650;font-size:15px;list-style:none;display:flex;align-items:center;gap:10px}
+details.theory>summary::-webkit-details-marker{display:none}
+details.theory>summary::before{content:"";width:8px;height:8px;border-right:2px solid var(--muted);border-bottom:2px solid var(--muted);transform:rotate(-45deg);transition:transform .15s}
+details.theory[open]>summary::before{transform:rotate(45deg)}
+details.theory>summary span{font-weight:400;color:var(--muted);font-size:13px}
+.theory-body{padding:0 16px 20px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px 32px}
+.theory-body section{min-width:0}
+.theory-body h3{font-size:15px;margin:0 0 6px;display:flex;gap:8px;align-items:baseline}
+.theory-body h3 em{font-style:normal;font-family:var(--f-num);font-size:12px;color:var(--sub)}
+.theory-body p{margin:0 0 8px;max-width:64ch}
+.eq{font-family:"Times New Roman",Times,"Songti SC",serif;font-size:17px;background:var(--surface-2);border:1px solid var(--line);border-radius:8px;padding:8px 12px;margin:6px 0 10px;overflow-x:auto;white-space:nowrap}
+.eq var{font-style:italic}
+.eq .c{font-family:var(--f-ui);font-size:12.5px;color:var(--muted);margin-left:10px}
+.tbl-wrap{overflow-x:auto}
+table{border-collapse:collapse;font-size:13px;width:100%;font-variant-numeric:tabular-nums}
+th,td{padding:5px 8px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}
+th:first-child,td:first-child{text-align:left}
+th{color:var(--muted);font-weight:600}
+.tri{width:100%;max-width:420px;height:auto;display:block;margin:4px 0 6px}
+.tri .ln{fill:none;stroke:var(--ink);stroke-width:1.6}
+.tri .eqline{fill:none;stroke:var(--muted);stroke-width:1.4;stroke-dasharray:5 4}
+.tri .orb{fill:none;stroke:var(--c1);stroke-width:2}
+.tri .lat{fill:none;stroke:var(--sub);stroke-width:2}
+.tri .dl{fill:none;stroke:var(--c3);stroke-width:2.2}
+.tri text{fill:var(--ink);font-size:13px;font-family:var(--f-ui)}
+.tri .sym{font-family:"Times New Roman",Times,serif;font-style:italic;font-size:16px}
+.tri .ptS{fill:var(--sub)}
+.tri .ptN{fill:var(--ink)}
+.full{grid-column:1/-1}
+@media (max-width:1000px){ .controls{grid-template-columns:minmax(0,1fr) minmax(0,1fr)} .controls .observe{grid-column:1/-1} .readout{grid-template-columns:repeat(3,minmax(0,1fr))} .cell:nth-child(3){border-right:0} .cell:nth-child(-n+3){border-bottom:1px solid var(--line)} }
+@media (max-width:860px){ .stage{grid-template-columns:minmax(0,1fr)} .cv3-wrap{flex:none;aspect-ratio:1/1;min-height:0} .theory-body{grid-template-columns:minmax(0,1fr)} }
+@media (max-width:600px){ .controls{grid-template-columns:minmax(0,1fr)} .readout{grid-template-columns:repeat(2,minmax(0,1fr))} .cell{border-right:1px solid var(--line)!important;border-bottom:1px solid var(--line)} .cell:nth-child(2n){border-right:0!important} .cell:nth-child(n+5){border-bottom:0} .preset{flex:1 1 calc(50% - 8px)} }
+@media (prefers-reduced-motion: reduce){ *{transition:none!important} }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header>
+    <div>
+      <p class="eyebrow">轨道力学 · 交互演示</p>
+      <h1>星下点与星下点轨迹<span class="dot" aria-hidden="true"></span></h1>
+      <p class="lede">卫星此刻在谁的头顶?把卫星和地心连成一条线,线穿过地面的那一点就是星下点。看它怎么画出一条波浪线,又为什么每绕一圈都往西挪一段。</p>
+    </div>
+    <div class="presets" role="group" aria-label="轨道预设">
+      <button class="preset" data-p="polar" aria-pressed="false">近地极轨<small>i 90° · 800 km</small></button>
+      <button class="preset" data-p="sso" aria-pressed="false">太阳同步<small>i 98.6° · 800 km</small></button>
+      <button class="preset" data-p="geo" aria-pressed="false">地球静止<small>i 0° · 35786 km</small></button>
+      <button class="preset" data-p="igso" aria-pressed="false">倾斜同步<small>i 55° · 35786 km</small></button>
+      <button class="preset" data-p="iss" aria-pressed="false">空间站类<small>i 51.6° · 420 km</small></button>
+    </div>
+  </header>
+
+  <section class="stage">
+    <figure class="panel">
+      <div class="panel-head"><b>三维视图 · 惯性空间</b><span>轨道面固定不动,地球在下方自西向东转</span></div>
+      <div class="cv3-wrap">
+        <canvas id="cv3" tabindex="0" aria-label="三维地球与卫星轨道,可拖拽旋转视角"></canvas>
+        <div class="badge3d" id="badge3d"></div>
+        <div class="hint3d">拖拽旋转 · 双击复位</div>
+      </div>
+      <div class="legend">
+        <span><i class="lg-dot" style="background:var(--sub)"></i>星下点</span>
+        <span><i class="lg-dot" style="background:#F4F7FF;box-shadow:0 0 0 1px var(--line)"></i>卫星</span>
+        <span><i class="lg-dash" style="border-color:var(--muted)"></i>卫星—地心连线</span>
+        <span><i class="lg-line" style="border-color:var(--c1)"></i>星下点尾迹(越旧越淡)</span>
+      </div>
+    </figure>
+    <figure class="panel">
+      <div class="panel-head"><b>二维地图 · 等距柱状投影</b><span>横轴经度 −180°~180°,纵轴纬度 −90°~90°,网格 30°</span></div>
+      <div class="map-wrap"><canvas id="cvm" aria-label="星下点轨迹地图"></canvas></div>
+      <div class="legend" id="orbLegend"></div>
+    </figure>
+  </section>
+
+  <section class="readout" aria-live="off">
+    <div class="cell hot"><div class="k"><var>φ</var>星下点纬度</div><div class="v" id="rLat">—</div><div class="s" id="rLatS">—</div></div>
+    <div class="cell hot"><div class="k"><var>λ</var>星下点经度</div><div class="v" id="rLon">—</div><div class="s" id="rLonS">—</div></div>
+    <div class="cell"><div class="k"><var>t</var>已运行时间</div><div class="v" id="rTime">—</div><div class="s" id="rTimeS">—</div></div>
+    <div class="cell"><div class="k"><var>N</var>已绕圈数</div><div class="v" id="rRev">—</div><div class="s" id="rRevS">—</div></div>
+    <div class="cell"><div class="k"><var>T</var>轨道周期</div><div class="v" id="rT">—</div><div class="s" id="rTS">—</div></div>
+    <div class="cell"><div class="k"><var>ΔL</var>每圈西移</div><div class="v" id="rDL">—</div><div class="s" id="rDLS">—</div></div>
+  </section>
+
+  <section class="controls">
+    <div class="card">
+      <h2>轨道参数</h2>
+      <div class="field">
+        <label for="inI">轨道倾角 <var>i</var></label>
+        <span class="numbox"><input id="numI" type="number" min="0" max="180" step="0.1" value="55" aria-label="轨道倾角数值">°</span>
+        <input id="inI" type="range" min="0" max="180" step="0.1" value="55">
+      </div>
+      <div class="field">
+        <label for="inH">轨道高度 <var>h</var></label>
+        <span class="numbox"><input id="numH" type="number" min="200" max="40000" step="1" value="800" aria-label="轨道高度数值">km</span>
+        <input id="inH" type="range" min="0" max="1000" step="1" value="262">
+        <span class="note" id="noteH">—</span>
+      </div>
+      <div class="field">
+        <label for="inE">偏心率 <var>e</var>(可选)</label>
+        <span class="numbox"><output id="outE">0.00</output></span>
+        <input id="inE" type="range" min="0" max="0.7" step="0.01" value="0">
+        <span class="note" id="noteE">e = 0 为圆轨道。椭圆时近地点幅角固定为 270°,远地点在北半球上空。</span>
+      </div>
+    </div>
+    <div class="card">
+      <h2>播放控制</h2>
+      <div class="field">
+        <label for="inS">时间加速倍率</label>
+        <span class="numbox"><output id="outS">400×</output></span>
+        <input id="inS" type="range" min="0" max="1000" step="1" value="788">
+        <span class="note" id="noteS">现实 1 秒 = 仿真 400 秒</span>
+      </div>
+      <div class="btns">
+        <button class="btn primary" id="bPlay"><svg viewBox="0 0 16 16" id="icoPlay"><path d="M4 3h3v10H4zM9 3h3v10H9z"/></svg><span>暂停</span></button>
+        <button class="btn" id="bReset"><svg viewBox="0 0 16 16"><path d="M8 2.5a5.5 5.5 0 1 1-5.2 3.7l1.4.5A4 4 0 1 0 8 4v2L4.5 3.2 8 .5z"/></svg>重置</button>
+        <button class="btn" id="bStep"><svg viewBox="0 0 16 16"><path d="M3 3l7 5-7 5zM11 3h2v10h-2z"/></svg>前进一圈</button>
+      </div>
+      <label class="switch"><input type="checkbox" id="inRot" role="switch"><span>不自转地球(对照模式)<small>去掉 −ω<sub>E</sub>·t 项:轨迹会收拢成同一条闭合曲线</small></span></label>
+      <span class="note" style="margin-top:-4px">改动参数后轨迹会清空,从升交点(赤道,向北穿越处)重新开始。按空格键也可以播放/暂停。</span>
+    </div>
+    <div class="card observe">
+      <h2>现在看到的</h2>
+      <div id="obs"></div>
+    </div>
+  </section>
+
+  <details class="theory" id="theory">
+    <summary>原理说明 <span>星下点定义 · 经纬度公式 · 倾角与纬度范围 · 高度与西移量</span></summary>
+    <div class="theory-body">
+      <section>
+        <h3><em>01</em>星下点是什么</h3>
+        <p>从卫星向地心画一条直线,这条线和地球表面的交点就是<b>星下点</b>。站在星下点上的人抬头看,卫星正好在头顶正上方(天顶)。</p>
+        <p>卫星在轨道上飞,星下点就在地面上移动,它走过的路径叫<b>星下点轨迹</b>(也叫地面轨迹)。本演示把地球看成半径 <i>R</i> = 6378.137 km 的正球体,所以“连地心”和“垂直地面”是同一件事。</p>
+      </section>
+      <section>
+        <h3><em>02</em>卫星走到轨道的哪儿了</h3>
+        <p>用<b>纬度幅角 <i>u</i></b> 表示卫星从升交点(由南向北穿过赤道的点)出发后,在轨道面里转过的角度。圆轨道是匀速的:</p>
+        <div class="eq"><var>u</var> = <var>u</var><sub>0</sub> + 2π<var>t</var> / <var>T</var><span class="c">本演示取 u₀ = 0,从升交点出发</span></div>
+        <p>转一圈要多久由开普勒第三定律决定,只和轨道半长轴 <i>a</i> = <i>R</i> + 高度有关:</p>
+        <div class="eq"><var>T</var> = 2π √( <var>a</var><sup>3</sup> / <var>μ</var> )<span class="c">μ = 3.986004418×10¹⁴ m³/s²</span></div>
+      </section>
+      <section>
+        <h3><em>03</em>经纬度公式从哪来</h3>
+        <svg class="tri" viewBox="0 0 420 200" role="img" aria-label="球面直角三角形:升交点N、星下点S、垂足F">
+          <path class="eqline" d="M10 168 Q210 150 410 168"/>
+          <text x="352" y="188">赤道</text>
+          <path class="orb" d="M40 162 Q170 70 330 40"/>
+          <text x="338" y="36">轨道</text>
+          <path class="dl" d="M52 160 Q160 151 292 157"/>
+          <path class="lat" d="M292 157 Q296 104 296 58"/>
+          <path class="ln" d="M88 154 A 45 45 0 0 0 82 136" />
+          <path class="ln" d="M280 157 L280 145 L293 145" />
+          <circle class="ptN" cx="52" cy="160" r="4.5"/>
+          <circle class="ptS" cx="296" cy="56" r="5.5"/>
+          <circle class="ptN" cx="292" cy="157" r="3.5"/>
+          <text x="22" y="186">N 升交点</text>
+          <text x="306" y="64">S 星下点</text>
+          <text x="300" y="178">F</text>
+          <text class="sym" x="96" y="146">i</text>
+          <text class="sym" x="170" y="96">u</text>
+          <text class="sym" x="304" y="116">φ</text>
+          <text class="sym" x="160" y="146">Δλ</text>
+        </svg>
+        <p>升交点 N、星下点 S、S 在赤道上的垂足 F,在球面上围成一个直角三角形:N 处的角是倾角 <i>i</i>,斜边 NS 是 <i>u</i>,直角边 FS 是纬度 <i>φ</i>,NF 是相对升交点的经度差 Δλ。球面三角的两条公式给出:</p>
+        <div class="eq">sin <var>φ</var> = sin <var>i</var> · sin <var>u</var> &nbsp;&nbsp; tan Δ<var>λ</var> = cos <var>i</var> · tan <var>u</var></div>
+        <p>程序里用 atan2 写第二式,保证四个象限都对。最后还要扣掉这段时间里地球自己转过的角度:</p>
+        <div class="eq"><var>λ</var> = <var>λ</var><sub>0</sub> + atan2(cos <var>i</var> sin <var>u</var>, cos <var>u</var>) − <var>ω</var><sub>E</sub><var>t</var><span class="c">结果归一化到 [−180°, 180°]</span></div>
+        <p><i>λ</i><sub>0</sub> 是开始时升交点下方的经度(本演示取东经 100°),<i>ω</i><sub>E</sub> = 7.2921159×10⁻⁵ rad/s,即每 86164 s(一个恒星日)转一圈。</p>
+      </section>
+      <section>
+        <h3><em>04</em>为什么倾角决定纬度范围</h3>
+        <p>sin <i>u</i> 最大是 1(卫星飞到轨道最北点,<i>u</i> = 90°),所以 sin <i>φ</i> 最大就是 sin <i>i</i>。星下点能到的最高纬度:</p>
+        <div class="eq"><var>φ</var><sub>max</sub> = <var>i</var> &nbsp;(<var>i</var> ≤ 90°) &nbsp;&nbsp;或&nbsp;&nbsp; 180° − <var>i</var> &nbsp;(<var>i</var> &gt; 90°,逆行轨道)</div>
+        <p>例如国际空间站倾角 51.6°,它的星下点永远被关在南北纬 51.6° 之间:能经过北京(39.9°N)和伦敦(51.5°N)附近上空,却到不了莫斯科(55.8°N)正上方。想看到两极,就要用倾角接近 90° 的极轨道。</p>
+        <h3 style="margin-top:14px"><em>05</em>为什么轨迹是一条波浪线</h3>
+        <p>轨道是一个穿过地心的大圆。把这个大圆“摊平”到经纬度地图上,它就变成一条上下起伏的正弦状曲线。如果地球不转,卫星每圈都会沿着同一条曲线回到起点。</p>
+      </section>
+      <section class="full">
+        <h3><em>06</em>为什么高度决定西移量</h3>
+        <p>卫星绕一圈要 <i>T</i> 秒,这段时间里地球向东转了 <i>ω</i><sub>E</sub>·<i>T</i>。卫星回到升交点时,脚下的大地已经往东挪走了,于是新一圈的轨迹整体<b>向西</b>错开同样的角度:</p>
+        <div class="eq">Δ<var>L</var> = <var>ω</var><sub>E</sub> · <var>T</var> = 360° × <var>T</var> / 86164 s</div>
+        <p>越高的轨道周期越长,西移越多。当周期正好等于一个恒星日(高度约 35786 km),西移 360°,等于没动:倾角为 0 时星下点停在原地(地球静止轨道),有倾角时则在南北之间来回,画出“8”字。下表由本页同一套公式算出:</p>
+        <div class="tbl-wrap"><table id="tblH"><thead><tr><th>轨道</th><th>高度</th><th>周期 T</th><th>每天约绕</th><th>每圈西移 ΔL</th></tr></thead><tbody></tbody></table></div>
+        <p style="margin-top:10px;color:var(--muted);font-size:13px">模型简化:正球体地球、二体问题、不考虑大气阻力和地球扁率(J2)摄动。真实的太阳同步轨道正是靠 J2 让轨道面每天向东转约 0.9856°,与太阳同步;本演示只体现它约 98.6° 的倾角和逆行特征。</p>
+      </section>
+    </div>
+  </details>
+</div>
+
+<script>
+(() => {
+'use strict';
+const D2R = Math.PI / 180, R2D = 180 / Math.PI, TAU = Math.PI * 2;
+const MU = 398600.4418;          // km^3/s^2  (= 3.986004418e14 m^3/s^2)
+const RE = 6378.137;             // km
+const WE = 7.2921159e-5;         // rad/s
+const SID = TAU / WE;            // 恒星日 s
+const LAM0 = 100;                // t=0 时升交点经度(度)
+const ARGP = 270 * D2R;          // 椭圆时的近地点幅角
+const SAMPLES = 1000;            // 每圈采样点数
+const MAXORB = 5;
+const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+const S = { i: 55, h: 800, e: 0, speed: 400, rot: true, playing: !reduceMotion, t: 0 };
+let O = {};
+const $ = id => document.getElementById(id);
+
+/* ---------- 物理 ---------- */
+function derive() {
+  const a = RE + S.h;
+  const emax = Math.max(0, 1 - (RE + 120) / a);
+  const e = Math.min(S.e, emax);
+  const T = TAU * Math.sqrt(a * a * a / MU);
+  let M0 = 0;
+  if (e > 1e-6) {
+    const nu0 = -ARGP; // 让 t=0 时 u=0(升交点)
+    const E0 = 2 * Math.atan2(Math.sqrt(1 - e) * Math.sin(nu0 / 2), Math.sqrt(1 + e) * Math.cos(nu0 / 2));
+    M0 = E0 - e * Math.sin(E0);
+  }
+  O = { a, e, emax, T, n: TAU / T, M0, ci: Math.cos(S.i * D2R), si: Math.sin(S.i * D2R), Om: LAM0 * D2R };
+}
+function orb(t) {
+  if (O.e <= 1e-6) return { u: O.n * t, r: O.a };
+  const M = O.M0 + O.n * t, e = O.e;
+  let E = M + e * Math.sin(M);
+  for (let k = 0; k < 10; k++) E -= (E - e * Math.sin(E) - M) / (1 - e * Math.cos(E));
+  const nu = 2 * Math.atan2(Math.sqrt(1 + e) * Math.sin(E / 2), Math.sqrt(1 - e) * Math.cos(E / 2));
+  return { u: ARGP + nu, r: O.a * (1 - e * Math.cos(E)) };
+}
+const wrap180 = d => d - 360 * Math.floor((d + 180) / 360);
+const mod360 = d => ((d % 360) + 360) % 360;
+function subpoint(t) {
+  const { u, r } = orb(t);
+  const su = Math.sin(u), cu = Math.cos(u);
+  const lat = Math.asin(O.si * su) * R2D;
+  const dl = Math.atan2(O.ci * su, cu) * R2D;
+  const lon = wrap180(LAM0 + dl - (S.rot ? WE * t * R2D : 0));
+  return { lat, lon, u, r };
+}
+function worldPos(u, r) { // 惯性系,单位:地球半径
+  const su = Math.sin(u), cu = Math.cos(u), cO = Math.cos(O.Om), sO = Math.sin(O.Om), k = r / RE;
+  return [k * (cO * cu - sO * su * O.ci), k * (sO * cu + cO * su * O.ci), k * su * O.si];
+}
+const deltaL = () => (S.rot ? WE * O.T * R2D : 0);
+
+/* ---------- 轨迹采样 ---------- */
+let orbits = [], jNext = 0;
+function addSamples(t) {
+  const hs = O.T / SAMPLES;
+  while (jNext * hs <= t + 1e-6) {
+    const sp = subpoint(jNext * hs);
+    const pt = [sp.lon, sp.lat];
+    if (jNext % SAMPLES === 0) {
+      const last = orbits[orbits.length - 1];
+      if (last) { last.pts.push(pt); last.endLon = pt[0]; last.done = true; }
+      orbits.push({ k: jNext / SAMPLES, pts: [pt], startLon: pt[0], startLat: pt[1], done: false });
+      if (orbits.length > MAXORB) orbits.shift();
+    } else orbits[orbits.length - 1].pts.push(pt);
+    jNext++;
+  }
+}
+function resetTrack() { S.t = 0; orbits = []; jNext = 0; derive(); addSamples(0); legendSig = ''; }
+
+/* ---------- 颜色 ---------- */
+let C = {};
+const VARS = ['bg','surface','ink','muted','line','sub','map-bg','ocean','land','coast','grid','grid-strong','anno','anno-2','pill','c1','c2','c3','c4','c5','on-space','on-space-2','star','ocean3d','land3d','glow','f-ui','f-num'];
+function readColors() {
+  const cs = getComputedStyle(document.documentElement);
+  VARS.forEach(v => C[v] = cs.getPropertyValue('--' + v).trim());
+  C.orb = [C.c1, C.c2, C.c3, C.c4, C.c5];
+  C.o3 = hexRgb(C.ocean3d); C.l3 = hexRgb(C.land3d);
+  mapDirty = true;
+}
+function hexRgb(h) { h = h.replace('#', ''); if (h.length === 3) h = h.split('').map(c => c + c).join(''); const n = parseInt(h, 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; }
+function alpha(col, a) { if (col.startsWith('#')) { const [r, g, b] = hexRgb(col); return `rgba(${r},${g},${b},${a})`; } return col; }
+
+/* ---------- 简化海岸线 [lon,lat,...] ---------- */
+const LAND = [
+// 北美
+[-166,68.5,-157,71.2,-141,69.7,-128,70,-115,68,-97,68,-94,61,-93,58.8,-87,55.5,-82,52.5,-79,54.5,-78,58.5,-77,62.3,-73,62,-65,60,-61,56,-56,52,-60,47,-66,45,-70,43.5,-70,41.7,-74,40.5,-76,37,-75.5,35.2,-79,33,-81,31.5,-80.2,27,-80.4,25.2,-81.8,26.5,-82.6,28.5,-84,30,-89,30.3,-90,29.2,-94,29.6,-97.3,27.8,-97.5,24.5,-97.7,21.5,-96,19,-94.5,18.2,-91,18.6,-90.4,21,-87,21.5,-87.6,18,-88.3,16,-84,15.8,-83.2,14.5,-83.5,11,-82,9,-79.5,9.5,-77.5,8.7,-78.3,7.6,-80,7.3,-83,8.3,-85.7,10,-87.5,13,-91.5,14,-94.5,16,-97.5,16,-101.5,17.5,-105.5,20.5,-105.5,23,-109,26,-112.5,29.5,-114.8,31.8,-113,29,-110,24,-109.5,23,-112,24.8,-114.5,28,-116,30.5,-117.1,32.5,-118.5,34,-120.6,34.6,-122.5,37.7,-124,40.5,-124.5,43,-124,46.2,-124.7,48.4,-123,49,-127.5,50.5,-130.5,54,-134,57.5,-137.5,58.8,-141,60,-146,60.7,-150,59.6,-154,57.5,-158,56.5,-163,54.8,-159,57,-157.5,58.8,-162,58.8,-164.5,60.5,-165.5,62.5,-164,64.5,-168,65.6],
+// 格陵兰
+[-73,78,-66,81,-50,82.5,-30,83.5,-20,82,-18,77,-20,72,-22,70,-27,68.5,-35,66,-40,65,-43,60,-48,61,-52,65,-54,68,-56,72,-62,76,-70,77],
+// 巴芬岛、维多利亚岛、埃尔斯米尔岛
+[-61.5,66.5,-68,62.5,-74,64.5,-72,67,-80,70,-89,70.5,-85,73.5,-76,73,-68,70.5],
+[-118,70,-112,73,-102,73,-101,69,-110,68.5],
+[-80,77,-92,80,-82,83,-62,82,-70,79],
+// 古巴、伊斯帕尼奥拉
+[-84.9,21.9,-82.5,23.1,-80,23.1,-77.2,21.6,-74.2,20.2,-77.7,19.9,-80.5,22,-83,21.9],
+[-74.4,18.4,-72.8,19.9,-69.9,19.6,-68.3,18.6,-71.5,17.6],
+// 南美
+[-77.5,8.7,-75.5,10.5,-72,12.2,-71.5,10.5,-68,10.6,-63,10.7,-61,10,-57,6,-52,5,-50,1.5,-48,-1,-44,-2.5,-39,-3.5,-35.2,-5.5,-35,-9,-37.5,-12.5,-39,-15,-39.5,-19,-41,-22,-44,-23,-48.5,-26,-48.8,-28.5,-51,-31,-53.5,-34,-57,-35,-57.5,-38.5,-62,-39,-65,-41,-63.5,-42.5,-65.5,-45,-67.5,-46.5,-66,-48,-68.5,-50.5,-68.5,-52.5,-66,-55,-70,-55.5,-74.5,-52.5,-75.5,-48,-74,-44,-73.5,-40,-73.5,-37,-71.5,-32,-71.3,-28,-70.5,-23,-70.3,-18.5,-75,-15.5,-77,-12,-79,-8,-81.2,-5,-80,-2.5,-80.5,-0.5,-79.5,1.5,-77.5,4,-77.4,6.6],
+// 欧亚
+[-9,43,-9.3,39,-8.8,37,-6,36.2,-2,36.7,0,38.8,0.5,40.5,3.2,42,3,43.3,6,43.1,8.5,44.4,10.5,43,12.5,41.5,15.6,40,16,38,17,39,18.5,40.2,16,41.5,13.5,43.6,12.3,45.3,13.7,45.6,15,44.5,19.5,41.8,20,39.5,21.5,37,23,36.5,23.5,38,24,40.5,26.5,40.8,29,41.2,26.5,39.5,27.3,37,29,36.6,32,36.1,36,36.5,35.9,35,35,33,34.3,31.3,34.9,29.5,35.2,28,36.5,26,39,21.5,42.5,16,43.5,12.7,45,12.8,48.5,14,52,15.6,55.5,17.8,57.8,19,59.8,22.5,58.6,23.6,56.4,24.9,56.3,26.3,55.5,25.5,54,24.2,51.6,24.3,51.6,25.9,50.8,24.8,50.1,26.2,48.5,28.3,48,29.9,50.3,30,51.4,27.9,54.5,26.6,56.4,27.1,57.3,25.8,61.6,25.2,66.6,25.4,67.5,23.9,69,22.4,70.4,20.9,72.8,21,72.8,19,73.5,16,74.8,12.8,76.3,9.5,77.5,8.1,78.2,8.9,79.8,10.3,80.2,13,80.3,15.8,82.3,17,85,19.5,87,21.5,89,21.8,91.5,22.5,92.3,20.7,94.3,18.2,94.4,16,97.5,16.5,98.5,13,98.5,10,98.3,8,100.4,5.5,101.3,2.8,103.5,1.3,104.3,1.5,103.4,4.5,102.2,6.2,100.4,7.5,99.2,10.5,100,13.4,100.9,13.4,102.5,12.2,104.8,10.4,105,8.7,106.7,10.4,109.2,11.8,109.3,13.8,108.2,16.1,106.5,17.9,105.7,19,106.7,20.7,108,21.5,109.8,21.4,110.3,20.4,110.5,21.2,113.5,22.2,116.5,22.9,118.5,24.5,119.6,25.8,120.5,27.3,121.8,29.8,121,30.8,121.9,31.6,120.8,32.6,119.3,34.5,120.3,36.1,122.5,37,120.8,37.8,119,37.2,118.8,38.2,117.7,39,119.5,39.9,121.8,40.9,122.2,40.5,121.2,39,122.8,39.5,124.3,39.9,125.1,38.7,126.2,37.7,126.5,36,126.3,34.6,127.5,34.6,129.3,35.2,129.5,36.8,128.5,38.3,127.5,39.8,129.7,40.9,130.7,42.3,132.3,43.2,135.5,43.9,138.5,47,140.5,50.5,141.3,53,139,54.2,136.8,54.6,142,59.3,148,59.4,152,59.1,155,59.4,155.6,57.5,156.7,51.1,158.6,52.9,160,54.5,162,56.2,163.2,58,164.8,59.8,166,60.4,170.5,60,173,61.6,178,62.5,180,64.8,180,69,170,70,161,69.6,152,70.9,141,72.7,130,71,128,73,113,73.6,110,76.6,104,77.7,98,76,88,75.5,86,74.5,76,72.8,70,73,67,69,60,69.8,55,68.5,44,68.5,43.5,66.2,40,64.6,36,66.5,33,69.3,28,71,24,71,19,70,15,68.5,12.5,66,10,63.5,5.2,62,5,59,6,58,10.6,59.5,11.2,58.5,12.6,56.2,14.3,55.5,16,56.3,16.5,57.7,18.5,59.4,17.2,60.7,17.5,62.3,21,64.5,22,65.8,25.3,65.2,21.5,63,21.4,61,22.8,59.9,30,59.9,28,59.4,23.5,59.2,23.5,58.2,24.3,57.2,21,57,21,56,21.2,55.2,19.6,54.4,18.6,54.6,14.2,53.9,12,54.2,10.9,54,9.9,54.8,10.3,56.5,10.5,57.6,8.2,57,8.1,55.5,8.6,53.9,7,53.5,4.8,53,4,51.5,1.7,51,1.5,50.1,-1.3,49.6,-1.9,49.7,-1.5,48.7,-4.7,48.4,-2.3,47.2,-1.2,46,-1.3,44.4,-1.8,43.4,-8,43.7],
+// 楚科奇(跨日界线部分)
+[-180,64.8,-172,64.3,-169.7,66,-175,67.5,-180,69],
+// 新地岛
+[52,71.5,55,73.5,59,76,68,77,69,76.8,61,75.8,56,73.2,55,70.8],
+// 非洲
+[-5.9,35.8,-1,35.1,3,36.8,10,37.3,11,35.5,10.2,34,11.2,33.2,15.3,32.3,19,30.3,20,32,23,32.6,25,31.7,29,30.9,32.3,31.3,34.3,31.3,34.9,29.5,34.2,27.8,33.9,27,35.6,23.5,37.3,21,38.5,18,39.7,15.3,41.7,13.5,43.3,11.8,44.6,10.4,47,11.1,51.2,11.8,51,10.4,49,6,46,2,42,-1,40.2,-2.8,39.3,-5,39.2,-8,40.5,-10.5,40.6,-15,37,-17.5,35,-20,35.5,-24,32.9,-26,32.5,-28.6,30,-31.3,27.5,-33.6,25.5,-34,22.5,-34,20,-34.8,18.4,-34.2,18.2,-32,17,-29,15.3,-27,14.5,-23,13.4,-20.5,11.8,-17.2,12.3,-14,13.7,-11,13.2,-8.5,12.3,-6,9.3,-2,9.4,0.5,9.8,3,8.7,4.5,6,4.3,4.5,6.3,2,6.3,-2,4.8,-4.5,5.2,-7.5,4.4,-9.5,5.8,-11.5,7,-13.2,8.8,-15,10.9,-16.7,12.5,-17.4,14.7,-16.5,16.5,-16.2,19.5,-17,21,-15.2,24,-13.5,27,-10,29.5,-9.7,30.8,-8.5,33.3,-6.8,34],
+// 马达加斯加
+[49.3,-12,50.4,-15.5,49.5,-17,47.1,-24.8,45.2,-25.5,43.6,-22,44.3,-16.5,47,-15.4],
+// 不列颠、爱尔兰、冰岛
+[-5.7,50,1.4,51.2,1.7,52.7,0.2,53.5,-1.6,55.6,-2,57.6,-3.3,58.6,-5,58.6,-6.2,57,-5.3,55.8,-4.8,54.8,-3.1,54,-3,53.3,-4.7,52.8,-5,51.7,-3.2,51.4],
+[-6,52.2,-6.2,54,-7.3,55.3,-8.4,55,-10,54.2,-9.4,52.6,-10.3,51.8,-8.5,51.6],
+[-22.5,64,-24,65.5,-22,66.4,-15,66.5,-13.5,65,-18,63.4],
+// 日本
+[130.2,31.2,131.5,31.4,132,33.5,134.5,33.6,135.8,33.5,137,34.5,138.8,34.6,140,35,140.8,35.7,141,38.3,142,39.5,141.4,41.4,140,40.7,140,39.5,139.4,38,137.3,36.8,136,35.6,133,35.5,131,34.3,129.5,33.3],
+[140,41.5,141.2,41.8,143.3,42,145.6,43.3,144.3,44.1,141.6,45.4,141.4,43.3,140,42.5],
+// 台湾、海南、斯里兰卡
+[120.1,23,120.8,21.9,121.9,24.6,121.5,25.3,120.8,24.6],
+[108.6,19.2,110.5,20,111,19.6,110,18.3,108.7,18.5],
+[79.8,8,80.2,9.8,81.9,7.5,81.2,6.2,80.1,6.1],
+// 东南亚群岛
+[95.3,5.6,97.5,5.2,100.5,2.2,104,-1,106,-3.2,105.8,-5.8,104.5,-5.9,101.5,-3,98.5,1.8],
+[105.2,-6.8,108.3,-6.4,111,-6.4,114.5,-7.6,114.4,-8.7,111,-8.2,106.5,-7.4],
+[109,1.5,110,-1.3,111.5,-3,114.5,-4,116.3,-3.5,116.6,-1.2,117.6,0.6,119,1,117.8,4.2,119.2,5.3,117.2,7,116,6,115,4.9,113,3.1,111.2,2.4,109.6,2],
+[119.4,-5.5,120.5,-5.6,121.3,-1.9,123.3,-1,125,1.5,124,1,120.8,1.3,120,0.5,119.6,-2.5],
+[131,-1.4,134.2,-0.8,138,-1.6,141,-2.6,145.7,-4.8,147.5,-6.3,148,-8,150.6,-10.6,147.3,-10.2,146,-8.2,143.5,-9,142.6,-9.3,141,-9.1,138.6,-8.3,137.6,-5.3,134.2,-4,132,-2.8],
+[120.6,18.5,122.3,18.4,122,16.2,124,13,123.5,12.8,121.4,13.8,120.5,14.5,119.8,16.3],
+[122,7,125.5,9.7,126.5,7.2,125.5,5.8,124,6.4],
+// 澳大利亚、塔斯马尼亚、新西兰
+[113.6,-22,114.2,-26.3,115,-29.5,115.6,-33.5,115,-34.3,118,-35,121.8,-33.9,124,-33,126.5,-32.3,131.5,-31.5,134.3,-32.9,135.9,-34.9,137.8,-33,137.8,-35.6,140,-37.5,143.5,-38.8,146.3,-39.1,148,-37.8,150,-37.4,150.8,-34.5,152.5,-32,153.6,-28.2,153,-25.3,150.8,-22.6,149,-20.4,146.3,-18.8,145.4,-15,143.7,-14,142.5,-10.7,141.6,-12.8,141.5,-15.5,140.7,-17.4,139.5,-17.5,137,-15.8,135.5,-14.8,136.8,-12.2,133,-11.3,131,-12.2,129.5,-14.9,127,-13.8,125,-15.3,122.2,-17.4,121,-19.6,117,-20.6,114.7,-21.8],
+[144.7,-40.7,148.3,-40.9,148,-43.2,146,-43.6,145.2,-42.2],
+[172.7,-34.4,174.5,-36.8,176,-37.6,178.5,-37.7,177.9,-39.2,176.9,-39.7,175.2,-41.6,174.6,-41.2,175,-39.9,173.8,-39.2,174.6,-37.5],
+[172.7,-40.5,174.2,-41.7,173.2,-43,172.7,-43.8,171.2,-44.5,170.6,-45.9,169,-46.6,166.5,-46.1,166.8,-45.3,168.3,-44,170.8,-42.7,172.1,-41],
+// 南极洲
+[-180,-78,-160,-77.5,-150,-76.5,-140,-75,-120,-73.8,-100,-73,-80,-73,-70,-69,-63,-64.5,-58,-63.4,-60,-66,-62,-70,-60,-75,-45,-78,-30,-77,-20,-73.5,-10,-71,0,-70,20,-70,40,-69,55,-66.8,70,-68,80,-67.5,100,-66,120,-66.5,140,-66.5,160,-70.5,170,-72,180,-78,180,-90,-180,-90]
+];
+const LAKES = [
+[28,41.3,28.5,43.5,31,46.6,33.5,46,32.5,45.3,33.5,44.4,35.5,45.1,36.5,45.3,38,47,39.3,47,38,45.5,37.5,44.7,39.9,43.4,41.6,41.6,40,41,36.5,41.3,35,42,33.2,42,31.3,41.1,29,41.2],
+[47,44.3,47.5,45.6,49.2,46.5,51.5,47,53,46.8,53.2,45.3,51.2,44.5,52.7,41.7,54,40.8,53.9,37.3,51,36.7,49,37.6,48.9,38.8,49.5,40.2,48.5,41.8,47.5,43]
+];
+const CITIES = [['北京',116.4,39.9],['东京',139.7,35.7],['纽约',-74.0,40.7],['伦敦',-0.1,51.5],['悉尼',151.2,-33.9]];
+
+/* 陆地掩膜(供三维地球逐像素着色) */
+const MW = 1024, MH = 512;
+const mask = new Uint8Array(MW * MH);
+(function buildMask() {
+  const c = document.createElement('canvas'); c.width = MW; c.height = MH;
+  const g = c.getContext('2d');
+  g.fillStyle = '#000'; g.fillRect(0, 0, MW, MH);
+  const path = (poly) => { g.beginPath(); for (let k = 0; k < poly.length; k += 2) { const x = (poly[k] + 180) / 360 * MW, y = (90 - poly[k + 1]) / 180 * MH; k ? g.lineTo(x, y) : g.moveTo(x, y); } g.closePath(); };
+  g.fillStyle = '#fff'; LAND.forEach(p => { path(p); g.fill(); });
+  g.fillStyle = '#000'; LAKES.forEach(p => { path(p); g.fill(); });
+  const d = g.getImageData(0, 0, MW, MH).data;
+  for (let k = 0; k < MW * MH; k++) mask[k] = d[k * 4] > 127 ? 1 : 0;
+})();
+
+/* ---------- 画布尺寸 ---------- */
+const cv3 = $('cv3'), cvm = $('cvm');
+const g3 = cv3.getContext('2d'), gm = cvm.getContext('2d');
+let W3 = 0, H3 = 0, WM = 0, HM = 0, dpr = 1, mapDirty = true;
+const mapBase = document.createElement('canvas');
+function resize() {
+  dpr = Math.min(window.devicePixelRatio || 1, 2);
+  const r3 = cv3.getBoundingClientRect(), rm = cvm.getBoundingClientRect();
+  W3 = r3.width; H3 = r3.height; WM = rm.width; HM = rm.height;
+  cv3.width = Math.round(W3 * dpr); cv3.height = Math.round(H3 * dpr);
+  cvm.width = Math.round(WM * dpr); cvm.height = Math.round(HM * dpr);
+  mapDirty = true;
+}
+new ResizeObserver(resize).observe(cv3.parentElement);
+new ResizeObserver(resize).observe(cvm.parentElement);
+
+/* ---------- 二维地图 ---------- */
+let PL = 0, PT = 0, PW = 1, PH = 1;
+const MX = lon => PL + (lon + 180) / 360 * PW;
+const MY = lat => PT + (90 - lat) / 180 * PH;
+function layoutMap() {
+  const small = WM < 520;
+  PL = small ? 28 : 38; PT = 8; const PR = 8, PB = small ? 18 : 22;
+  PW = Math.max(10, WM - PL - PR); PH = Math.max(10, HM - PT - PB);
+}
+function buildMapBase() {
+  layoutMap();
+  mapBase.width = cvm.width; mapBase.height = cvm.height;
+  const g = mapBase.getContext('2d');
+  g.setTransform(dpr, 0, 0, dpr, 0, 0);
+  g.fillStyle = C['map-bg']; g.fillRect(0, 0, WM, HM);
+  g.fillStyle = C.ocean; g.fillRect(PL, PT, PW, PH);
+  g.save(); g.beginPath(); g.rect(PL, PT, PW, PH); g.clip();
+  const path = poly => { g.beginPath(); for (let k = 0; k < poly.length; k += 2) { const x = MX(poly[k]), y = MY(poly[k + 1]); k ? g.lineTo(x, y) : g.moveTo(x, y); } g.closePath(); };
+  g.fillStyle = C.land; g.strokeStyle = C.coast; g.lineWidth = 0.7; g.lineJoin = 'round';
+  LAND.forEach(p => { path(p); g.fill(); g.stroke(); });
+  g.fillStyle = C.ocean; LAKES.forEach(p => { path(p); g.fill(); g.stroke(); });
+  // 网格
+  for (let lon = -180; lon <= 180; lon += 30) {
+    g.strokeStyle = lon === 0 ? C['grid-strong'] : C.grid; g.lineWidth = 1;
+    g.beginPath(); g.moveTo(Math.round(MX(lon)) + .5, PT); g.lineTo(Math.round(MX(lon)) + .5, PT + PH); g.stroke();
+  }
+  for (let lat = -90; lat <= 90; lat += 30) {
+    g.strokeStyle = lat === 0 ? C['grid-strong'] : C.grid; g.lineWidth = 1;
+    g.beginPath(); g.moveTo(PL, Math.round(MY(lat)) + .5); g.lineTo(PL + PW, Math.round(MY(lat)) + .5); g.stroke();
+  }
+  // 城市
+  const fs = WM < 520 ? 10 : 11.5;
+  g.font = `${fs}px ${C['f-ui']}`;
+  CITIES.forEach(([name, lon, lat]) => {
+    const x = MX(lon), y = MY(lat);
+    g.fillStyle = C.ink; g.beginPath(); g.arc(x, y, 2.6, 0, TAU); g.fill();
+    g.strokeStyle = C['map-bg']; g.lineWidth = 1; g.stroke();
+    g.fillStyle = C.ink; g.globalAlpha = .82; g.textBaseline = 'middle';
+    const right = name === '东京' || name === '悉尼';
+    g.textAlign = right ? 'left' : 'right';
+    g.fillText(name, x + (right ? 5 : -5), y + (name === '北京' ? -6 : 0));
+    g.globalAlpha = 1;
+  });
+  g.restore();
+  g.strokeStyle = C['grid-strong']; g.lineWidth = 1; g.strokeRect(PL + .5, PT + .5, PW - 1, PH - 1);
+  // 刻度标签
+  g.fillStyle = C.muted; g.font = `${WM < 520 ? 9.5 : 11}px ${C['f-num']}`;
+  g.textAlign = 'center'; g.textBaseline = 'top';
+  const step = WM < 520 ? 60 : 30;
+  for (let lon = -180; lon <= 180; lon += step) {
+    const lab = lon === 0 ? '0°' : Math.abs(lon) === 180 ? '180°' : `${Math.abs(lon)}°${lon < 0 ? 'W' : 'E'}`;
+    g.textAlign = lon === -180 ? 'left' : lon === 180 ? 'right' : 'center';
+    g.fillText(lab, MX(lon), PT + PH + 4);
+  }
+  g.textAlign = 'right'; g.textBaseline = 'middle';
+  for (let lat = -90; lat <= 90; lat += 30) {
+    const lab = lat === 0 ? '0°' : `${Math.abs(lat)}°${lat < 0 ? 'S' : 'N'}`;
+    g.fillText(lab, PL - 4, Math.min(PT + PH - 5, Math.max(PT + 5, MY(lat))));
+  }
+  mapDirty = false;
+}
+function trackPath(g, pts) {
+  g.beginPath();
+  let prev = null;
+  for (const p of pts) {
+    if (!prev) { g.moveTo(MX(p[0]), MY(p[1])); prev = p; continue; }
+    const dl = p[0] - prev[0];
+    if (Math.abs(dl) > 180) {
+      const sgn = dl < 0 ? 1 : -1, edge = 180 * sgn, p2 = p[0] + 360 * sgn;
+      const f = (edge - prev[0]) / (p2 - prev[0]);
+      const latX = prev[1] + f * (p[1] - prev[1]);
+      g.lineTo(MX(edge), MY(latX)); g.moveTo(MX(-edge), MY(latX)); g.lineTo(MX(p[0]), MY(p[1]));
+    } else g.lineTo(MX(p[0]), MY(p[1]));
+    prev = p;
+  }
+  g.stroke();
+}
+function pill(g, text, x, y, color, align) {
+  const pad = 5, h = 18;
+  const w = g.measureText(text).width + pad * 2;
+  let x0 = align === 'right' ? x - w : align === 'center' ? x - w / 2 : x;
+  x0 = Math.max(PL + 2, Math.min(PL + PW - w - 2, x0));
+  const y0 = Math.max(PT + 2, Math.min(PT + PH - h - 2, y - h / 2));
+  g.fillStyle = C.pill; g.beginPath();
+  if (g.roundRect) g.roundRect(x0, y0, w, h, 4); else g.rect(x0, y0, w, h);
+  g.fill();
+  g.fillStyle = color; g.textAlign = 'left'; g.textBaseline = 'middle';
+  g.fillText(text, x0 + pad, y0 + h / 2 + .5);
+}
+function drawMap(cur) {
+  if (mapDirty) buildMapBase();
+  const g = gm;
+  g.setTransform(1, 0, 0, 1, 0, 0);
+  g.drawImage(mapBase, 0, 0);
+  g.setTransform(dpr, 0, 0, dpr, 0, 0);
+  g.save(); g.beginPath(); g.rect(PL, PT, PW, PH); g.clip();
+  const small = WM < 520;
+  const fs = small ? 10 : 11.5;
+  g.font = `600 ${fs}px ${C['f-ui']}`;
+
+  // 最高/最低纬度
+  const iEff = S.i <= 90 ? S.i : 180 - S.i;
+  if (iEff >= 0.5) {
+    g.strokeStyle = C['anno-2']; g.lineWidth = 1.2; g.setLineDash([6, 5]);
+    [iEff, -iEff].forEach(l => { g.beginPath(); g.moveTo(PL, MY(l)); g.lineTo(PL + PW, MY(l)); g.stroke(); });
+    g.setLineDash([]);
+    const rel = S.i <= 90 ? '= i' : '= 180° − i';
+    pill(g, `最北 +${iEff.toFixed(1)}° ${rel}`, PL + PW - 4, MY(iEff) - (iEff > 80 ? -12 : 12), C['anno-2'], 'right');
+    pill(g, `最南 −${iEff.toFixed(1)}° ${rel}`, PL + PW - 4, MY(-iEff) + (iEff > 80 ? -12 : 12), C['anno-2'], 'right');
+  }
+
+  // 各圈轨迹
+  const n = orbits.length;
+  orbits.forEach((o, idx) => {
+    const newest = idx === n - 1;
+    g.strokeStyle = C.orb[o.k % 5];
+    g.lineWidth = newest ? 2.3 : 1.6;
+    g.globalAlpha = newest ? 1 : 0.55 + 0.45 * (idx + 1) / n;
+    g.lineJoin = 'round';
+    trackPath(g, newest && cur ? o.pts.concat([[cur.lon, cur.lat]]) : o.pts);
+    g.globalAlpha = 1;
+  });
+  // 每圈起点(升交点)标记
+  orbits.forEach(o => {
+    const x = MX(o.startLon), y = MY(o.startLat);
+    g.fillStyle = C.orb[o.k % 5]; g.strokeStyle = C['map-bg']; g.lineWidth = 1.2;
+    g.beginPath(); g.moveTo(x, y - 5); g.lineTo(x + 4, y); g.lineTo(x, y + 5); g.lineTo(x - 4, y); g.closePath(); g.fill(); g.stroke();
+  });
+
+  // ΔL 标注:最近完成的一圈
+  const done = orbits.filter(o => o.done);
+  if (done.length) {
+    const o = done[done.length - 1];
+    const west = mod360(o.startLon - o.endLon);
+    const signed = west <= 180 ? -west : 360 - west; // 终点相对起点的经度变化
+    const y = MY(o.startLat), x1 = MX(o.startLon), dx = signed / 360 * PW;
+    g.strokeStyle = C.anno; g.fillStyle = C.anno; g.lineWidth = 1.4;
+    g.setLineDash([4, 3]);
+    [o.startLon, o.endLon].forEach(l => { g.beginPath(); g.moveTo(MX(l), y - 18); g.lineTo(MX(l), y + 18); g.stroke(); });
+    for (const off of [-PW, 0, PW]) { g.beginPath(); g.moveTo(x1 + off, y - 12); g.lineTo(x1 + dx + off, y - 12); g.stroke(); }
+    g.setLineDash([]);
+    if (Math.abs(dx) > 6) {
+      const dir = Math.sign(dx);
+      for (const off of [-PW, 0, PW]) {
+        const xe = x1 + dx + off;
+        g.beginPath(); g.moveTo(xe, y - 12); g.lineTo(xe - dir * 7, y - 16); g.lineTo(xe - dir * 7, y - 8); g.closePath(); g.fill();
+      }
+    }
+    let xm = x1 + dx / 2; if (xm < PL) xm += PW; if (xm > PL + PW) xm -= PW;
+    let txt;
+    if (!S.rot) txt = `第 ${o.k + 1} 圈 ΔL = 0°(首尾重合)`;
+    else if (west < 0.05 || west > 359.95) txt = `第 ${o.k + 1} 圈 ΔL ≈ 0°(回到原地)`;
+    else if (west <= 180) txt = `第 ${o.k + 1} 圈 西移 ΔL = ${west.toFixed(2)}°`;
+    else txt = `第 ${o.k + 1} 圈 ΔL = ${deltaL().toFixed(1)}°,等效东移 ${(360 - west).toFixed(2)}°`;
+    g.font = `600 ${fs}px ${C['f-ui']}`;
+    pill(g, txt, xm, y - 32, C.anno, 'center');
+  }
+
+  // 当前星下点
+  if (cur) {
+    const x = MX(cur.lon), y = MY(cur.lat);
+    const ph = reduceMotion ? 0.5 : (performance.now() / 1400) % 1;
+    g.strokeStyle = C.sub; g.globalAlpha = 1 - ph; g.lineWidth = 2;
+    g.beginPath(); g.arc(x, y, 5 + ph * 12, 0, TAU); g.stroke(); g.globalAlpha = 1;
+    g.fillStyle = C.sub; g.strokeStyle = '#fff'; g.lineWidth = 2;
+    g.beginPath(); g.arc(x, y, 5, 0, TAU); g.fill(); g.stroke();
+  }
+  g.restore();
+  if (!S.rot) {
+    g.font = `600 ${fs}px ${C['f-ui']}`;
+    pill(g, '对照模式:地球不自转', PL + 6, PT + 14, C.sub, 'left');
+  }
+}
+
+/* ---------- 三维视图 ---------- */
+const VIEW0 = { yaw: (LAM0 - 30) * D2R, pitch: 24 * D2R };
+let view = { ...VIEW0 }, scale3 = 0;
+let Cv, Rv, Uv, cx3, cy3, sc3;
+function basis() {
+  const cyw = Math.cos(view.yaw), syw = Math.sin(view.yaw), cp = Math.cos(view.pitch), sp = Math.sin(view.pitch);
+  Cv = [cp * cyw, cp * syw, sp]; Rv = [-syw, cyw, 0]; Uv = [-sp * cyw, -sp * syw, cp];
+}
+function P(p) {
+  const sx = p[0] * Rv[0] + p[1] * Rv[1] + p[2] * Rv[2];
+  const sy = p[0] * Uv[0] + p[1] * Uv[1] + p[2] * Uv[2];
+  const d = p[0] * Cv[0] + p[1] * Cv[1] + p[2] * Cv[2];
+  return { x: cx3 + sx * sc3, y: cy3 - sy * sc3, d, occ: d < 0 && sx * sx + sy * sy < 1 };
+}
+function b2w(lonDeg, latDeg, th, k = 1) {
+  const la = latDeg * D2R, lo = lonDeg * D2R + th;
+  return [k * Math.cos(la) * Math.cos(lo), k * Math.cos(la) * Math.sin(lo), k * Math.sin(la)];
+}
+const stars = (() => { let s = 7; const r = () => (s = (s * 16807) % 2147483647) / 2147483647; return Array.from({ length: 160 }, () => [r(), r(), r() * 1.2 + .3, r() * .7 + .3]); })();
+const globe = document.createElement('canvas'); const gg = globe.getContext('2d'); let gImg = null;
+const L3 = (() => { const v = [-0.5, 0.55, 0.67]; const m = Math.hypot(...v); return v.map(x => x / m); })();
+function renderGlobe(th, rpx) {
+  const N = Math.max(24, Math.min(380, Math.round(rpx * 2 * dpr)));
+  if (globe.width !== N) { globe.width = globe.height = N; gImg = gg.createImageData(N, N); }
+  const d = gImg.data, h = N / 2, ct = Math.cos(th), st = Math.sin(th);
+  const [o0, o1, o2] = C.o3, [l0, l1, l2] = C.l3;
+  for (let py = 0; py < N; py++) {
+    const b = -(py + .5 - h) / h;
+    for (let px = 0; px < N; px++) {
+      const a = (px + .5 - h) / h, q = a * a + b * b, idx = (py * N + px) * 4;
+      if (q > 1) { d[idx + 3] = 0; continue; }
+      const z = Math.sqrt(1 - q);
+      const wx = a * Rv[0] + b * Uv[0] + z * Cv[0];
+      const wy = a * Rv[1] + b * Uv[1] + z * Cv[1];
+      const wz = a * Rv[2] + b * Uv[2] + z * Cv[2];
+      const bx = wx * ct + wy * st, by = -wx * st + wy * ct;
+      const lat = Math.asin(wz > 1 ? 1 : wz < -1 ? -1 : wz), lon = Math.atan2(by, bx);
+      let mx = ((lon + Math.PI) / TAU * MW) | 0, my = ((Math.PI / 2 - lat) / Math.PI * MH) | 0;
+      if (mx >= MW) mx = MW - 1; if (my >= MH) my = MH - 1;
+      const land = mask[my * MW + mx];
+      let sh = 0.3 + 0.78 * Math.max(0, a * L3[0] + b * L3[1] + z * L3[2]);
+      sh *= 0.82 + 0.18 * z;
+      if (sh > 1.12) sh = 1.12;
+      d[idx] = (land ? l0 : o0) * sh; d[idx + 1] = (land ? l1 : o1) * sh; d[idx + 2] = (land ? l2 : o2) * sh; d[idx + 3] = 255;
+    }
+  }
+  gg.putImageData(gImg, 0, 0);
+}
+function polyline3(g, pts, test) { // pts: world points; 只画未遮挡/正面部分
+  g.beginPath(); let pen = false;
+  for (const w of pts) { const p = P(w); const ok = test(p); if (ok) { pen ? g.lineTo(p.x, p.y) : g.moveTo(p.x, p.y); pen = true; } else pen = false; }
+  g.stroke();
+}
+function draw3d(cur, th) {
+  const g = g3;
+  g.setTransform(dpr, 0, 0, dpr, 0, 0);
+  g.clearRect(0, 0, W3, H3);
+  basis();
+  cx3 = W3 / 2; cy3 = H3 / 2 + 4;
+  const rMax = O.a * (1 + O.e) / RE;
+  const target = Math.min(W3, H3) / 2 * 0.86 / Math.max(rMax * 1.04, 1.35);
+  scale3 = scale3 ? scale3 + (target - scale3) * 0.12 : target;
+  sc3 = scale3;
+  // 星空
+  stars.forEach(([x, y, r, a]) => { g.globalAlpha = a; g.fillStyle = C.star; g.fillRect(x * W3, y * H3, r, r); });
+  g.globalAlpha = 1;
+  const fs = W3 < 420 ? 11 : 12.5;
+  g.font = `${fs}px ${C['f-ui']}`;
+
+  // 赤道面参考圈(轨道半径)
+  const rRef = O.a / RE;
+  const ring = []; for (let k = 0; k <= 180; k++) { const a = k / 180 * TAU; ring.push([rRef * Math.cos(a), rRef * Math.sin(a), 0]); }
+  g.strokeStyle = alpha(C['on-space-2'], .35); g.lineWidth = 1; g.setLineDash([3, 5]);
+  polyline3(g, ring, p => !p.occ); g.setLineDash([]);
+
+  // 地球
+  const rpx = sc3;
+  renderGlobe(th, rpx);
+  g.imageSmoothingEnabled = true;
+  g.drawImage(globe, cx3 - rpx, cy3 - rpx, rpx * 2, rpx * 2);
+  const atm = g.createRadialGradient(cx3, cy3, rpx * 0.96, cx3, cy3, rpx * 1.12);
+  atm.addColorStop(0, alpha(C.glow, .55)); atm.addColorStop(1, alpha(C.glow, 0));
+  g.fillStyle = atm; g.beginPath(); g.arc(cx3, cy3, rpx * 1.12, 0, TAU); g.arc(cx3, cy3, rpx * 0.96, 0, TAU, true); g.fill();
+
+  // 经纬网(随地球转动)
+  g.lineWidth = 0.8;
+  for (let lat = -60; lat <= 60; lat += 30) {
+    const pts = []; for (let lon = -180; lon <= 180; lon += 4) pts.push(b2w(lon, lat, th));
+    g.strokeStyle = lat === 0 ? 'rgba(255,255,255,.55)' : 'rgba(255,255,255,.22)';
+    polyline3(g, pts, p => p.d > 0);
+  }
+  for (let lon = -180; lon < 180; lon += 30) {
+    const pts = []; for (let lat = -90; lat <= 90; lat += 4) pts.push(b2w(lon, lat, th));
+    g.strokeStyle = lon === 0 ? 'rgba(255,255,255,.5)' : 'rgba(255,255,255,.22)';
+    polyline3(g, pts, p => p.d > 0);
+  }
+  // 自转轴与自转箭头
+  g.strokeStyle = alpha(C['on-space'], .7); g.lineWidth = 1.2;
+  polyline3(g, [[0, 0, 1], [0, 0, 1.45]], p => !p.occ);
+  polyline3(g, [[0, 0, -1], [0, 0, -1.3]], p => !p.occ);
+  const np = P([0, 0, 1.52]);
+  g.fillStyle = C['on-space']; g.textAlign = 'center'; g.textBaseline = 'middle';
+  g.fillText('北极', np.x, np.y - 6);
+  if (S.rot) {
+    const arc = []; for (let k = 0; k <= 40; k++) { const a = k / 40 * 1.6 * Math.PI; arc.push([0.32 * Math.cos(a), 0.32 * Math.sin(a), 1.25]); }
+    g.strokeStyle = alpha(C.glow, .9); g.lineWidth = 1.4; polyline3(g, arc, () => true);
+    const e1 = P(arc[arc.length - 1]), e0 = P(arc[arc.length - 4]);
+    const ang = Math.atan2(e1.y - e0.y, e1.x - e0.x);
+    g.fillStyle = alpha(C.glow, .95); g.beginPath();
+    g.moveTo(e1.x + Math.cos(ang) * 6, e1.y + Math.sin(ang) * 6);
+    g.lineTo(e1.x + Math.cos(ang + 2.5) * 6, e1.y + Math.sin(ang + 2.5) * 6);
+    g.lineTo(e1.x + Math.cos(ang - 2.5) * 6, e1.y + Math.sin(ang - 2.5) * 6); g.fill();
+  }
+
+  // 星下点尾迹(固定在地表,随地球转)
+  const n = orbits.length;
+  orbits.forEach((o, idx) => {
+    const age = n - 1 - idx;
+    const pts = o.pts.map(p => b2w(p[0], p[1], th, 1.003));
+    if (idx === n - 1 && cur) pts.push(b2w(cur.lon, cur.lat, th, 1.003));
+    g.strokeStyle = C.orb[o.k % 5];
+    g.globalAlpha = [1, .62, .42, .28, .18][age] || .15;
+    g.lineWidth = age === 0 ? 2.4 : 1.7;
+    polyline3(g, pts, p => p.d > 0.02);
+  });
+  g.globalAlpha = 1;
+
+  // 轨道
+  const path = [];
+  for (let k = 0; k <= 360; k++) {
+    const nu = k / 360 * TAU;
+    if (O.e <= 1e-6) path.push(worldPos(nu, O.a));
+    else path.push(worldPos(ARGP + nu, O.a * (1 - O.e * O.e) / (1 + O.e * Math.cos(nu))));
+  }
+  g.strokeStyle = alpha(C['on-space'], .85); g.lineWidth = 1.5;
+  polyline3(g, path, p => !p.occ);
+  // 升交点
+  const nodeR = O.e <= 1e-6 ? O.a : O.a * (1 - O.e * O.e) / (1 + O.e * Math.cos(-ARGP));
+  const nd = P(worldPos(0, nodeR));
+  if (!nd.occ) {
+    g.fillStyle = C['on-space']; g.beginPath(); g.moveTo(nd.x, nd.y - 5); g.lineTo(nd.x + 4, nd.y); g.lineTo(nd.x, nd.y + 5); g.lineTo(nd.x - 4, nd.y); g.fill();
+    const sNow = cur ? P(worldPos(cur.u, cur.r)) : null;
+    if (!sNow || Math.hypot(sNow.x - nd.x, sNow.y - nd.y) > 46) { // 卫星靠近时隐藏,避免文字重叠
+      g.fillStyle = C['on-space-2']; g.textAlign = 'left'; g.fillText('升交点', nd.x + 7, nd.y + 1);
+    }
+  }
+
+  if (!cur) return;
+  // 卫星—地心连线
+  const sat = worldPos(cur.u, cur.r);
+  const rs = Math.hypot(...sat), surf = sat.map(v => v / rs);
+  const sp = P(surf), ctr = P([0, 0, 0]);
+  if (sp.d > 0) {
+    g.strokeStyle = alpha(C['on-space'], .75); g.lineWidth = 1.2; g.setLineDash([4, 4]);
+    g.beginPath(); g.moveTo(sp.x, sp.y); g.lineTo(ctr.x, ctr.y); g.stroke(); g.setLineDash([]);
+    g.strokeStyle = C['on-space']; g.lineWidth = 1.2;
+    g.beginPath(); g.moveTo(ctr.x - 4, ctr.y); g.lineTo(ctr.x + 4, ctr.y); g.moveTo(ctr.x, ctr.y - 4); g.lineTo(ctr.x, ctr.y + 4); g.stroke();
+    g.fillStyle = C['on-space-2']; g.textAlign = 'left'; g.fillText('地心', ctr.x + 7, ctr.y + 9);
+  }
+  const seg = []; for (let k = 0; k <= 40; k++) { const f = 1 + (rs - 1) * k / 40; seg.push(surf.map(v => v * f)); }
+  g.strokeStyle = '#FFD166'; g.lineWidth = 1.6; g.setLineDash([5, 4]);
+  polyline3(g, seg, p => !p.occ); g.setLineDash([]);
+
+  // 星下点
+  if (sp.d > 0) {
+    const ph = reduceMotion ? .5 : (performance.now() / 1400) % 1;
+    g.strokeStyle = C.sub; g.globalAlpha = 1 - ph; g.lineWidth = 2;
+    g.beginPath(); g.arc(sp.x, sp.y, 5 + ph * 11, 0, TAU); g.stroke(); g.globalAlpha = 1;
+    g.fillStyle = C.sub; g.strokeStyle = '#fff'; g.lineWidth = 1.8;
+    g.beginPath(); g.arc(sp.x, sp.y, 5, 0, TAU); g.fill(); g.stroke();
+    g.font = `600 ${fs}px ${C['f-ui']}`;
+    const sv = P(sat);
+    labelOnSpace(g, '星下点', sp.x, sp.y, C.sub, Math.hypot(sv.x - sp.x, sv.y - sp.y) < 60);
+  }
+  // 卫星
+  const s = P(sat);
+  g.globalAlpha = s.occ ? .25 : 1;
+  const glow = g.createRadialGradient(s.x, s.y, 0, s.x, s.y, 14);
+  glow.addColorStop(0, 'rgba(255,255,255,.9)'); glow.addColorStop(1, 'rgba(255,255,255,0)');
+  g.fillStyle = glow; g.beginPath(); g.arc(s.x, s.y, 14, 0, TAU); g.fill();
+  g.fillStyle = '#F4F7FF'; g.fillRect(s.x - 3, s.y - 3, 6, 6);
+  g.fillStyle = '#7FB4FF'; g.fillRect(s.x - 12, s.y - 2, 7, 4); g.fillRect(s.x + 5, s.y - 2, 7, 4);
+  g.font = `600 ${fs}px ${C['f-ui']}`; g.fillStyle = C['on-space']; g.textAlign = 'left'; g.textBaseline = 'middle';
+  g.fillText('卫星', s.x + 15, s.y - 10);
+  g.globalAlpha = 1;
+}
+function labelOnSpace(g, t, x, y, col, inward) {
+  let dx = x - cx3, dy = y - cy3; const m = Math.hypot(dx, dy) || 1;
+  if (inward) { dx = -dx; dy = -dy; } // 卫星离得太近时,标签放到地心一侧,避免与“卫星”重叠
+  const lx = x + dx / m * 16 + (dx >= 0 ? 4 : -4), ly = y + dy / m * 16;
+  g.textAlign = dx >= 0 ? 'left' : 'right'; g.textBaseline = 'middle';
+  g.lineWidth = 3; g.strokeStyle = 'rgba(5,10,20,.75)'; g.strokeText(t, lx, ly);
+  g.fillStyle = col; g.fillText(t, lx, ly);
+}
+// 拖拽
+let drag = null;
+cv3.addEventListener('pointerdown', e => { drag = { x: e.clientX, y: e.clientY }; cv3.setPointerCapture(e.pointerId); });
+cv3.addEventListener('pointermove', e => {
+  if (!drag) return;
+  view.yaw -= (e.clientX - drag.x) * 0.008;
+  view.pitch = Math.max(-1.45, Math.min(1.45, view.pitch + (e.clientY - drag.y) * 0.008));
+  drag = { x: e.clientX, y: e.clientY };
+});
+const endDrag = () => drag = null;
+cv3.addEventListener('pointerup', endDrag); cv3.addEventListener('pointercancel', endDrag);
+cv3.addEventListener('dblclick', () => { view = { ...VIEW0 }; });
+cv3.addEventListener('keydown', e => {
+  const k = { ArrowLeft: [0.08, 0], ArrowRight: [-0.08, 0], ArrowUp: [0, 0.08], ArrowDown: [0, -0.08] }[e.key];
+  if (k) { view.yaw += k[0]; view.pitch = Math.max(-1.45, Math.min(1.45, view.pitch + k[1])); e.preventDefault(); }
+});
+
+/* ---------- 读数 ---------- */
+const fmt2 = (x, d = 2) => (x >= 0 ? '+' : '−') + Math.abs(x).toFixed(d) + '°';
+function fmtTime(t) {
+  const d = Math.floor(t / 86400); let r = t - d * 86400;
+  const h = Math.floor(r / 3600); r -= h * 3600; const m = Math.floor(r / 60); const s = Math.floor(r - m * 60);
+  const p = v => String(v).padStart(2, '0');
+  return (d ? d + ' 天 ' : '') + `${p(h)}:${p(m)}:${p(s)}`;
+}
+function fmtPeriod(T) {
+  if (T < 7200) return [`${(T / 60).toFixed(2)} 分钟`, `= ${T.toFixed(1)} 秒`];
+  const h = Math.floor(T / 3600), m = Math.floor((T - h * 3600) / 60), s = Math.round(T - h * 3600 - m * 60);
+  return [`${(T / 3600).toFixed(3)} 小时`, `= ${h} 时 ${m} 分 ${s} 秒`];
+}
+let lastRead = 0;
+function readout(cur, force) {
+  const now = performance.now();
+  if (!force && now - lastRead < 90) return;
+  lastRead = now;
+  $('rLat').textContent = fmt2(cur.lat);
+  $('rLatS').textContent = Math.abs(cur.lat) < 0.005 ? '赤道上' : (cur.lat > 0 ? '北纬 ' : '南纬 ') + Math.abs(cur.lat).toFixed(2) + '°';
+  $('rLon').textContent = fmt2(cur.lon);
+  $('rLonS').textContent = (cur.lon >= 0 ? '东经 ' : '西经 ') + Math.abs(cur.lon).toFixed(2) + '°';
+  $('rTime').textContent = fmtTime(S.t);
+  $('rTimeS').textContent = `仿真 ${S.t < 1e6 ? S.t.toFixed(0) : S.t.toExponential(3)} 秒`;
+  const rev = S.t / O.T, full = Math.floor(rev + 1e-9);
+  $('rRev').textContent = `${full} 圈`;
+  $('rRevS').textContent = `第 ${full + 1} 圈已走 ${((rev - full) * 100).toFixed(0)}%`;
+  const [tv, ts] = fmtPeriod(O.T);
+  $('rT').textContent = tv; $('rTS').textContent = ts;
+  const dL = deltaL();
+  $('rDL').textContent = dL.toFixed(2) + '°';
+  let dLs;
+  if (!S.rot) dLs = '不自转:没有西移';
+  else if (dL <= 180) dLs = `赤道上约 ${(dL * D2R * RE).toFixed(0)} km`;
+  else {
+    const w = mod360(dL);
+    dLs = (w < 0.05 || w > 359.95) ? '≈ 360°:每圈回到原经度' : w <= 180 ? `地图上等效西移 ${w.toFixed(2)}°` : `地图上等效东移 ${(360 - w).toFixed(2)}°`;
+  }
+  $('rDLS').textContent = dLs;
+}
+let legendSig = '';
+function legend() {
+  const sig = orbits.map(o => o.k + (o.done ? 'd' : '')).join(',') + S.rot;
+  if (sig === legendSig) return; legendSig = sig;
+  const el = $('orbLegend');
+  const items = orbits.map((o, idx) => {
+    const west = o.done ? mod360(o.startLon - o.endLon) : null;
+    let wv = west <= 180 ? west : west - 360; if (Math.abs(wv) < 0.05) wv = 0;
+    const tail = o.done ? (S.rot ? ` · ΔL ${wv.toFixed(1)}°` : ' · ΔL 0°') : ' · 进行中';
+    return `<span class="chip${idx === orbits.length - 1 ? ' now' : ''}"><i class="lg-line" style="border-color:${C.orb[o.k % 5]};border-top-width:3px"></i>第 ${o.k + 1} 圈${tail}</span>`;
+  });
+  items.push(`<span class="chip"><i class="lg-dash" style="border-color:${C['anno-2']}"></i>纬度极值</span>`);
+  el.innerHTML = items.join('');
+}
+
+/* ---------- 现象解说 ---------- */
+function observe() {
+  const iEff = S.i <= 90 ? S.i : 180 - S.i;
+  const dL = deltaL();
+  const sync = Math.abs(O.T - SID) / SID < 0.004;
+  const out = [];
+  if (!S.rot) {
+    out.push(['对照', `地球被“冻住”了。卫星每绕一圈回到同一个升交点,轨迹是同一条闭合曲线,所有颜色的圈完全重合,ΔL = 0。`]);
+    out.push(['结论', `把开关关掉,轨迹立刻逐圈错开。可见<b>西移完全来自地球自转</b>,和卫星本身无关。`]);
+  } else if (sync && iEff < 0.5) {
+    out.push(['静止', `周期 ≈ 1 个恒星日、倾角 0°。卫星和地球转得一样快,星下点几乎钉在东经 ${LAM0}° 的赤道上不动。这就是地球静止轨道,通信和气象卫星常用它。`]);
+  } else if (sync) {
+    out.push(['8 字', `周期 ≈ 1 个恒星日,每圈西移约 360°,等于回到原地;但轨道是斜的,星下点在南北 ±${iEff.toFixed(1)}° 之间往返,东西方向小幅摆动,画出一个“8”字。北斗的 IGSO 卫星就是这种轨迹。`]);
+  } else {
+    out.push(['波浪', `星下点在南北纬 ±${iEff.toFixed(1)}° 之间上下起伏,${S.i <= 90 ? '最高纬度等于倾角 i' : '最高纬度等于 180° − i'}。${iEff > 80 ? '倾角接近 90°,轨迹几乎扫过两极,几天就能覆盖全球。' : ''}`]);
+    out.push(['西移', `卫星绕一圈 ${fmtPeriod(O.T)[0]},这段时间地球向东转了 <b>${dL.toFixed(2)}°</b>,所以下一圈整体往西挪 ${dL > 180 ? '(超过半圈,看起来像往东挪)' : dL.toFixed(2) + '°'}。`]);
+  }
+  if (S.i > 90) out.push(['逆行', `倾角大于 90° 是逆行轨道:卫星向西北方向飞,和地球自转方向相反。`]);
+  if (O.e > 1e-6) out.push(['椭圆', `e = ${O.e.toFixed(2)}:远地点(北半球上空)附近飞得慢,轨迹在那里变得密集、拉长;近地点附近飞得快,轨迹稀疏。`]);
+  $('obs').innerHTML = out.map(([t, s]) => `<p><span class="tag">${t}</span><br>${s}</p>`).join('');
+  $('badge3d').textContent = S.rot ? '地球按 ω_E 自转' : '对照模式:地球不自转';
+}
+
+/* ---------- 控件 ---------- */
+const H_LOG = Math.log(200), S_LOG = Math.log(2000);
+const h2s = h => Math.round(1000 * Math.log(h / 200) / H_LOG);
+const s2h = s => 200 * Math.exp(s / 1000 * H_LOG);
+const sp2s = v => Math.round(1000 * Math.log(v) / S_LOG);
+const s2sp = s => Math.exp(s / 1000 * S_LOG);
+function syncUI() {
+  $('inI').value = S.i; $('numI').value = +S.i.toFixed(1);
+  $('inH').value = h2s(S.h); $('numH').value = Math.round(S.h);
+  $('inE').value = S.e; $('outE').textContent = O.e.toFixed(2);
+  $('inS').value = sp2s(S.speed);
+  const spTxt = S.speed < 10 ? S.speed.toFixed(1) : Math.round(S.speed);
+  $('outS').textContent = spTxt + '×';
+  $('noteS').textContent = `现实 1 秒 = 仿真 ${spTxt} 秒,绕一圈约需 ${(O.T / S.speed).toFixed(O.T / S.speed < 10 ? 1 : 0)} 秒`;
+  $('inRot').checked = !S.rot;
+  const v = Math.sqrt(MU / O.a);
+  $('noteH').textContent = `半长轴 a = ${O.a.toFixed(0)} km · 圆轨道速度 ${v.toFixed(2)} km/s`;
+  $('noteE').textContent = O.e > 1e-6
+    ? `近地点 ${(O.a * (1 - O.e) - RE).toFixed(0)} km · 远地点 ${(O.a * (1 + O.e) - RE).toFixed(0)} km${S.e > O.emax + 1e-9 ? `(受近地点高度限制,e 最大 ${O.emax.toFixed(2)})` : ''}。近地点幅角固定 270°。`
+    : 'e = 0 为圆轨道。椭圆时近地点幅角固定为 270°,远地点在北半球上空。';
+  playBtn();
+}
+function playBtn() {
+  $('bPlay').querySelector('span').textContent = S.playing ? '暂停' : '播放';
+  $('icoPlay').innerHTML = S.playing ? '<path d="M4 3h3v10H4zM9 3h3v10H9z"/>' : '<path d="M4 2.5l9 5.5-9 5.5z"/>';
+}
+function changed(keepPreset) {
+  resetTrack(); syncUI(); observe();
+  if (!keepPreset) document.querySelectorAll('.preset').forEach(b => b.setAttribute('aria-pressed', 'false'));
+}
+$('inI').addEventListener('input', e => { S.i = +e.target.value; changed(); });
+$('numI').addEventListener('change', e => { S.i = Math.max(0, Math.min(180, +e.target.value || 0)); changed(); });
+$('inH').addEventListener('input', e => { S.h = Math.round(s2h(+e.target.value)); changed(); });
+$('numH').addEventListener('change', e => { S.h = Math.max(200, Math.min(40000, +e.target.value || 800)); changed(); });
+$('inE').addEventListener('input', e => { S.e = +e.target.value; changed(); });
+$('inS').addEventListener('input', e => { S.speed = Math.max(1, Math.min(2000, s2sp(+e.target.value))); syncUI(); });
+$('inRot').addEventListener('change', e => { S.rot = !e.target.checked; changed(true); });
+$('bPlay').addEventListener('click', () => { S.playing = !S.playing; playBtn(); });
+$('bReset').addEventListener('click', () => { resetTrack(); legendSig = ''; });
+$('bStep').addEventListener('click', () => {
+  const target = (Math.floor(S.t / O.T + 1e-9) + 1) * O.T;
+  S.t = target; addSamples(target); S.playing = false; playBtn();
+});
+document.addEventListener('keydown', e => {
+  if (e.code === 'Space' && !/INPUT|TEXTAREA|BUTTON|SUMMARY/.test(document.activeElement.tagName)) { e.preventDefault(); S.playing = !S.playing; playBtn(); }
+});
+const PRESETS = {
+  polar: { i: 90, h: 800, e: 0, speed: 400 },
+  sso:   { i: 98.6, h: 800, e: 0, speed: 400 },
+  geo:   { i: 0, h: 35786, e: 0, speed: 2000 },
+  igso:  { i: 55, h: 35786, e: 0, speed: 2000 },
+  iss:   { i: 51.6, h: 420, e: 0, speed: 300 }
+};
+document.querySelectorAll('.preset').forEach(b => b.addEventListener('click', () => {
+  Object.assign(S, PRESETS[b.dataset.p]);
+  document.querySelectorAll('.preset').forEach(x => x.setAttribute('aria-pressed', String(x === b)));
+  changed(true); S.playing = true; playBtn();
+}));
+
+/* 原理说明里的对照表 */
+(function table() {
+  const rows = [['空间站类', 420], ['极轨 / 太阳同步', 800], ['GPS 类中轨', 20200], ['地球静止 / 倾斜同步', 35786]];
+  $('tblH').querySelector('tbody').innerHTML = rows.map(([n, h]) => {
+    const a = RE + h, T = TAU * Math.sqrt(a * a * a / MU), dL = WE * T * R2D;
+    const tt = T < 7200 ? (T / 60).toFixed(1) + ' 分钟' : (T / 3600).toFixed(2) + ' 小时';
+    return `<tr><td>${n}</td><td>${h} km</td><td>${tt}</td><td>${(86400 / T).toFixed(2)} 圈</td><td>${dL.toFixed(2)}°${Math.abs(dL - 360) < 0.1 ? '(≈ 360°,回原地)' : ''}</td></tr>`;
+  }).join('');
+})();
+
+/* ---------- 主循环 ---------- */
+let last = performance.now();
+function frame(now) {
+  const dt = Math.min(0.1, Math.max(0, (now - last) / 1000)); last = now;
+  if (S.playing) { S.t += dt * S.speed; addSamples(S.t); }
+  const cur = subpoint(S.t);
+  const th = S.rot ? WE * S.t : 0;
+  if (W3 > 0) draw3d(cur, th);
+  if (WM > 0) drawMap(cur);
+  readout(cur); legend();
+  requestAnimationFrame(frame);
+}
+const themeRefresh = () => { readColors(); legendSig = ''; };
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change', themeRefresh);
+new MutationObserver(themeRefresh).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme', 'class'] });
+
+readColors(); derive(); resetTrack(); syncUI(); observe(); resize();
+readout(subpoint(0), true);
+requestAnimationFrame(frame);
+
+// 调试/验收用
+window.sim = { S, get O() { return O; }, subpoint, get orbits() { return orbits; }, deltaL, addSamples,
+  setParams(p) { Object.assign(S, p); changed(); } };
+})();
+</script>
+
+</body>
+</html>
